@@ -42,7 +42,16 @@ void write_symbol(FILE* output, uint32_t addr, const char* name) {
  */
 SymbolTable* create_table(int mode) {
     /* YOUR CODE HERE */
-    return NULL;
+    if(mode != SYMTBL_NON_UNIQUE && mode != SYMTBL_UNIQUE_NAME) return NULL;
+    
+    //TODO if malloc() failed
+    SymbolTable* newtable = (SymbolTable*) malloc(sizeof(SymbolTable));
+    newtable->mode = mode;
+    newtable->cap = 5;
+    newtable->len = 0;
+    newtable->tbl = (Symbol*) malloc(sizeof(Symbol)*5);
+
+    return newtable;
 }
 
 /* Frees the given SymbolTable and all associated memory. */
