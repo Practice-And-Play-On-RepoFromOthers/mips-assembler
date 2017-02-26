@@ -44,12 +44,13 @@ SymbolTable* create_table(int mode) {
     /* YOUR CODE HERE */
     if(mode != SYMTBL_NON_UNIQUE && mode != SYMTBL_UNIQUE_NAME) return NULL;
     
-    //TODO if malloc() failed
     SymbolTable* newtable = (SymbolTable*) malloc(sizeof(SymbolTable));
+    if(newtable == 0) allocation_failed();
+    newtable->tbl = (Symbol*) malloc(sizeof(Symbol)*5);
+    if(newtable->tbl == 0) allocation_failed();
     newtable->mode = mode;
     newtable->cap = 5;
     newtable->len = 0;
-    newtable->tbl = (Symbol*) malloc(sizeof(Symbol)*5);
 
     return newtable;
 }
@@ -57,6 +58,7 @@ SymbolTable* create_table(int mode) {
 /* Frees the given SymbolTable and all associated memory. */
 void free_table(SymbolTable* table) {
     /* YOUR CODE HERE */
+    free(table);
 }
 
 /* Adds a new symbol and its address to the SymbolTable pointed to by TABLE. 
@@ -75,7 +77,44 @@ void free_table(SymbolTable* table) {
  */
 int add_to_table(SymbolTable* table, const char* name, uint32_t addr) {
     /* YOUR CODE HERE */
-    return -1;
+
+    if(addr % 4 != 0)
+    {
+        addr_alignment_incorrect();
+        return -1;
+    }
+
+    Symbol* p = table->tbl;
+    for(int i = 0; i < table->len; i++)
+    {
+        if(strcmp(p->name, name) == 0 && table->mode == SYMTBL_UNIQUE_NAME)
+        {
+            name_already_exists(name);
+            return -1;
+        }
+        p++;
+    }   
+    
+    if(table->cap == table->len)
+    {
+        int newcap = (table->cap) << 1;
+        table->tbl = realloc(table->tbl, newcap * sizeof(SymbolTable));
+        if(table->tbl == 0) allocation_failed();
+        table->cap = newcap;
+        p = table->tbl;
+        for(int i = 0; i < table->len; i++)
+        {
+            p++;
+        }
+    }
+    
+    char namecpy[sizeof(name)];
+    strcpy(namecpy, name);
+    p->name = namecpy;
+    p->addr = addr;
+
+    table->len++;
+    return 0;
 }
 
 /* Returns the address (byte offset) of the given symbol. If a symbol with name
