@@ -122,6 +122,17 @@ int add_to_table(SymbolTable* table, const char* name, uint32_t addr) {
  */
 int64_t get_addr_for_symbol(SymbolTable* table, const char* name) {
     /* YOUR CODE HERE */
+    Symbol* p = table->tbl;
+    for(int i = 0; i < table->len; i++)
+    {
+        if(strcmp(p->name, name) == 0)
+        {
+            return (int64_t) p->addr;
+        }
+
+        p++;
+    }
+
     return -1;   
 }
 
@@ -130,4 +141,10 @@ int64_t get_addr_for_symbol(SymbolTable* table, const char* name) {
  */
 void write_table(SymbolTable* table, FILE* output) {
     /* YOUR CODE HERE */
+    Symbol* p = table->tbl;
+    for(int i = 0; i < table->len; i++)
+    {
+        write_symbol(output, p->addr, p->name);
+        p++;
+    }
 }
