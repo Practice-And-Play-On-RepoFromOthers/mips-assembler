@@ -63,7 +63,7 @@ int translate_num(long int* output, const char* str, long int lower_bound,
     char* endptr;
     long int num = strtol(str, &endptr, 0);
     if( endptr == str || ( errno == ERANGE && ( num == LONG_MAX || num == LONG_MIN ))) return -1;
-    if (num >= lower_bound && num < upper_bound)
+    if (num >= lower_bound && num <= upper_bound)
     {
         *output = num;
         return 0;
@@ -99,4 +99,9 @@ int translate_reg(const char* str) {
     else if (strcmp(str, "$ra") == 0)   return 31;
 
     else                                return -1;
+}
+
+int is_valid_input(uint8_t funct, size_t num_args, size_t expected)
+{
+    return (num_args == expected && funct < 0x40)? 1:0;
 }
