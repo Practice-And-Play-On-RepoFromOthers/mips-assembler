@@ -101,7 +101,7 @@ int translate_reg(const char* str) {
     else                                return -1;
 }
 
-int is_valid_input(uint8_t funct, size_t num_args, size_t expected)
+int is_valid_args(size_t num_args, size_t expected)
 {
-    return (num_args == expected && funct < 0x40)? 1:0;
+    return (num_args == expected)? 1:0;
 }

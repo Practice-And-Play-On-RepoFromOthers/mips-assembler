@@ -41,12 +41,26 @@
 unsigned write_pass_one(FILE* output, const char* name, char** args, int num_args) {
     if (strcmp(name, "li") == 0) {
         /* YOUR CODE HERE */
-        if(num_args != 2) return 0;
-
+        if(!is_valid_args(num_args, 2)) return 0;
+        long int immd;
+        if(translate_num(&immd, args[1], 0, 0xffffffff) == -1) return 0;
+        if(immd < 0x10000) 
+        {
+            fprintf("addiu %s, %s\n", args[0], args[1]);
+        }
+        else
+        {
+            int lowerimmd = (immd & 0x0000ffff);
+            fprintf("lui %s, %d\n", args[0], (immd - lowerimmd));
+            fprintf("ori %s, $zero, %d\n", args[0], lowerimmd);
+        }
 
         return 0;
     } else if (strcmp(name, "blt") == 0) {
         /* YOUR CODE HERE */
+        if(!is_valid_args(num_args, 3)) return 0;
+        fprintf("slt $t0, %s, %s", args[0], args[1]);
+        fprintf("bne $t0, $zero, %s", args[2]);
 
         return 0;
     } else {
@@ -83,19 +97,19 @@ int translate_inst(FILE* output, const char* name, char** args, size_t num_args,
     else if (strcmp(name, "sltu") == 0)  return write_rtype (0x2b, output, args, num_args);
     else if (strcmp(name, "sll") == 0)   return write_shift (0x00, output, args, num_args);
     /* YOUR CODE HERE */
-    else if (strcmp(name, "jr") == 0)    return write_jumprtype (0x08, output, args, num_args);
-    else if (strcmp(name, "addiu") == 0) return write_itype (0x09, output, args, num_args);
-    else if (strcmp(name, "ori") == 0)   return write_itype (0x0d, output, args, num_args);
+    else if (strcmp(name, "jr") == 0)    return write_jr (0x08, output, args, num_args);
+    else if (strcmp(name, "addiu") == 0) return write_addiu (0x09, output, args, num_args);
+    else if (strcmp(name, "ori") == 0)   return write_addiu (0x0d, output, args, num_args);
     else if (strcmp(name, "lui") == 0)   return write_lui (0x0f, output, args, num_args);
-    else if (strcmp(name, "lb") == 0)    return write_loadbyte (0x20, output, args, num_args);
-    else if (strcmp(name, "lbu") == 0)   return write_loadbyte (0x24, output, args, num_args);
-    else if (strcmp(name, "lw") == 0)    return write_loadbyte (0x23, output, args, num_args);
-    else if (strcmp(name, "sb") == 0)    return write_loadbyte (0x28, output, args, num_args);
-    else if (strcmp(name, "sw") == 0)    return write_loadbyte (0x2b, output, args, num_args);
-    else if (strcmp(name, "beq") == 0)   return write_ilabel (0x04, output, args, num_args, symtbl);
-    else if (strcmp(name, "bne") == 0)   return write_ilabel (0x05, output, args, num_args, symtbl);
-    else if (strcmp(name, "j") == 0)     return write_jtype (0x02, output, args, num_args, symtbl);
-    else if (strcmp(name, "jal") == 0)   return write_jtype (0x03, output, args, num_args, symtbl);
+    else if (strcmp(name, "lb") == 0)    return write_mem (0x20, output, args, num_args);
+    else if (strcmp(name, "lbu") == 0)   return write_mem (0x24, output, args, num_args);
+    else if (strcmp(name, "lw") == 0)    return write_mem (0x23, output, args, num_args);
+    else if (strcmp(name, "sb") == 0)    return write_mem (0x28, output, args, num_args);
+    else if (strcmp(name, "sw") == 0)    return write_mem (0x2b, output, args, num_args);
+    else if (strcmp(name, "beq") == 0)   return write_branch (0x04, output, args, num_args, addr, symtbl);
+    else if (strcmp(name, "bne") == 0)   return write_branch (0x05, output, args, num_args, addr, symtbl);
+    else if (strcmp(name, "j") == 0)     return write_jump (0x02, output, args, num_args, addr, reltbl);
+    else if (strcmp(name, "jal") == 0)   return write_jump (0x03, output, args, num_args, addr, reltbl);
     else                                 return -1;
 }
 
@@ -108,7 +122,7 @@ int translate_inst(FILE* output, const char* name, char** args, size_t num_args,
  */
 int write_rtype(uint8_t funct, FILE* output, char** args, size_t num_args) {
 
-    if(!is_valid_input(funct, num_args, 3)) return -1;
+    if(!is_valid_args(num_args, 3)) return -1;
 
     int rd = translate_reg(args[0])<<11;
     int rs = translate_reg(args[1])<<21;
@@ -130,7 +144,7 @@ int write_rtype(uint8_t funct, FILE* output, char** args, size_t num_args) {
 int write_shift(uint8_t funct, FILE* output, char** args, size_t num_args) {
 	// Perhaps perform some error checking?
 
-    if(!is_valid_input(funct, num_args, 3)) return -1;
+    if(!is_valid_args(num_args, 3)) return -1;
 
     long int shamt;
     int rd = translate_reg(args[0]) << 11;
@@ -142,17 +156,17 @@ int write_shift(uint8_t funct, FILE* output, char** args, size_t num_args) {
     return 0;
 }
 
-int write_jumprtype(uint8_t funct, FILE* output, char** args, size_t num_args) {
+int write_jr(uint8_t funct, FILE* output, char** args, size_t num_args) {
     
-    if(!is_valid_input(funct, num_args, 1)) return -1;
+    if(!is_valid_args(num_args, 1)) return -1;
     int rs = translate_reg(args[0]) << 21;
     write_inst_hex(output, (funct << 26 ) | rs);
     return 0;
 }
 
-int write_itype(uint8_t funct, FILE* output, char** args, size_t num_args) {
+int write_addiu(uint8_t funct, FILE* output, char** args, size_t num_args) {
 
-    if(!is_valid_input(funct, num_args, 3)) return -1;
+    if(!is_valid_args(num_args, 3)) return -1;
     int rs = translate_reg(args[1])<<21;
     int rt = translate_reg(args[0])<<16;
     long int immd;
@@ -163,35 +177,34 @@ int write_itype(uint8_t funct, FILE* output, char** args, size_t num_args) {
     return 0;
 }
 
-int write_jtype(uint8_t funct, FILE* output, char** args, size_t num_args, SymbolTable* symtbl) {
+int write_jump(uint8_t funct, FILE* output, char** args, size_t num_args, uint32_t addr, SymbolTable* reltbl) {
 
-    if(!is_valid_input(funct, num_args, 1)) return -1;
-    long int addr;
+    if(!is_valid_args(num_args, 1)) return -1;
     if(is_valid_label(args[0]) == -1) return -1;
-    int err = translate_num(&addr, get_addr_for_symbol(symtbl, args[0]), 0, 0x3ffffff);
+    int err = translate_num(&addr, get_addr_for_symbol(reltbl, args[0]), 0, 0x3ffffff);
     if(err == -1) return -1;
 
     write_inst_hex(output, (funct << 26 ) | addr);
     return 0;
 }
 
-int write_ilabel(uint8_t funct, FILE* output, char** args, size_t num_args, SymbolTable* symtbl) {
+int write_branch(uint8_t funct, FILE* output, char** args, size_t num_args, uint32_t addr, SymbolTable* symtbl) {
 
-    if(!is_valid_input(funct, num_args, 3)) return -1;
+    if(!is_valid_args(num_args, 3)) return -1;
     int rs = translate_reg(args[1])<<21;
     int rt = translate_reg(args[0])<<16;
-    long int immd;
+
     if(is_valid_label(args[2]) == -1) return -1;
-    int err = translate_num(&immd, get_addr_for_symbol(symtbl, args[2]), 0, 0xffff);
+    int err = translate_num(&addr, get_addr_for_symbol(symtbl, args[2]), 0, 0xffff);
     if(err == -1) return -1;
 
-    write_inst_hex(output, (funct << 26 ) | rs | rt | immd);
+    write_inst_hex(output, (funct << 26 ) | rs | rt | addr);
     return 0;
 }
 
-int write_loadbyte(uint8_t funct, FILE* output, char** args, size_t num_args) {
+int write_mem(uint8_t funct, FILE* output, char** args, size_t num_args) {
 
-    if(!is_valid_input(funct, num_args, 3)) return -1;
+    if(!is_valid_args(num_args, 3)) return -1;
     int rs = translate_reg(args[2])<<21;
     int rt = translate_reg(args[0])<<16;
     long int immd;
@@ -204,7 +217,7 @@ int write_loadbyte(uint8_t funct, FILE* output, char** args, size_t num_args) {
 
 int write_lui(uint8_t funct, FILE* output, char** args, size_t num_args) {
 
-    if(!is_valid_input(funct, num_args, 2)) return -1;
+    if(!is_valid_args(num_args, 2)) return -1;
     int rt = translate_reg(args[0])<<16;
     long int immd;
     int err = translate_num(&immd, args[1], 0, 0xffff);
