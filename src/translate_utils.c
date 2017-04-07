@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <errno.h>
 #include <limits.h>
 #include "translate_utils.h"
 
@@ -62,7 +61,7 @@ int translate_num(long int* output, const char* str, long int lower_bound,
     /* YOUR CODE HERE */
     char* endptr;
     long int num = strtol(str, &endptr, 0);
-    if( endptr == str || ( errno == ERANGE && ( num == LONG_MAX || num == LONG_MIN ))) return -1;
+    if(strlen(endptr) > 0) return -1;
     if (num >= lower_bound && num <= upper_bound)
     {
         *output = num;

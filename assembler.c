@@ -121,7 +121,68 @@ static int add_if_label(uint32_t input_line, char* str, uint32_t byte_offset,
  */
 int pass_one(FILE* input, FILE* output, SymbolTable* symtbl) {
     /* YOUR CODE HERE */
-    return -1;
+    char buf[BUF_SIZE];
+    int err = 0;
+    uint32_t byte_offset = 0;
+    int input_line = 1;
+    while(fgets(buf, BUF_SIZE, input))
+    {
+        skip_comment(buf);
+        strtok(buf, "\n");
+        char* token = strtok(buf, " ");
+        if(token != NULL)
+        {
+            int num_args = 0;
+            char* args[MAX_ARGS];
+            char* name;
+            int addLabel = add_if_label(input_line, token, byte_offset, symtbl);
+            if(addLabel == -1)
+            {
+                err = -1;
+                name = strtok(NULL, " ");
+            }
+            else if(addLabel == 0)
+            {
+                name = token;
+            }
+            else
+            {
+                name = strtok(NULL, " ");
+            }
+
+            if(name != NULL)
+            {
+                char* argStr = strtok(NULL, " ");
+                token = strtok(argStr, ", ");
+                while(token != NULL)
+                {
+                    if(num_args < MAX_ARGS)
+                    {
+                        args[num_args] = token;
+                        num_args++;
+                        token = strtok(NULL, ", ");
+                    }
+                    else
+                    {
+                        raise_extra_arg_error(input_line, token);
+                        err = -1;
+                        break;
+                    }
+                }
+
+                if(num_args < MAX_ARGS)
+                {
+                    int insts = write_pass_one(output, name, args, num_args);
+                    if(insts == 0) err = -1;
+                    else byte_offset += (insts<<2);
+                }
+            }
+        }
+
+        input_line++;
+    }
+
+    return err;
 }
 
 /* Reads an intermediate file and translates it into machine code. You may assume:
@@ -139,17 +200,38 @@ int pass_two(FILE *input, FILE* output, SymbolTable* symtbl, SymbolTable* reltbl
     // Since we pass this buffer to strtok(), the chars here will GET CLOBBERED.
     char buf[BUF_SIZE];
     // Store input line number / byte offset below. When should each be incremented?
-
+    int line = 1;
+    int err = 0;
+    while(fgets(buf, BUF_SIZE, input))
+    {
     // First, read the next line into a buffer.
-
     // Next, use strtok() to scan for next character. If there's nothing,
     // go to the next line.
-
-    // Parse for instruction arguments. You should use strtok() to tokenize
-    // the rest of the line. Extra arguments should be filtered out in pass_one(),
-    // so you don't need to worry about that here.
-    char* args[MAX_ARGS];
-    int num_args = 0;
+        strtok(buf, "\n");
+        char* name = strtok(buf, " ");
+        if(name != NULL)
+        {
+            char* args[MAX_ARGS];
+            int num_args = 0;
+            char* token = strtok(NULL, " ");
+            
+            while(token != NULL)
+            {
+                args[num_args] = token;
+                token = strtok(NULL, " ");
+                num_args++;
+            }
+        // Parse for instruction arguments. You should use strtok() to tokenize
+        // the rest of the line. Extra arguments should be filtered out in pass_one(),
+        // so you don't need to worry about that here.
+            if(translate_inst(output, name, args, num_args, line << 2, symtbl, reltbl) == -1) 
+            {
+                raise_inst_error(line, name, args, num_args) ;
+                err = -1;
+            }
+        }
+        line ++;
+    }
 
     // Use translate_inst() to translate the instruction and write to output file.
     // If an error occurs, the instruction will not be written and you should call
@@ -157,7 +239,7 @@ int pass_two(FILE *input, FILE* output, SymbolTable* symtbl, SymbolTable* reltbl
 
     // Repeat until no more characters are left, and the return the correct return val
 
-    return -1;
+    return err;
 }
 
 /*******************************

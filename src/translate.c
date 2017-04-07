@@ -46,23 +46,24 @@ unsigned write_pass_one(FILE* output, const char* name, char** args, int num_arg
         if(translate_num(&immd, args[1], 0, 0xffffffff) == -1) return 0;
         if(immd < 0x10000) 
         {
-            fprintf("addiu %s, %s\n", args[0], args[1]);
+            fprintf(output, "addiu %s %s\n", args[0], args[1]);
+            return 1;
         }
         else
         {
             int lowerimmd = (immd & 0x0000ffff);
-            fprintf("lui %s, %d\n", args[0], (immd - lowerimmd));
-            fprintf("ori %s, $zero, %d\n", args[0], lowerimmd);
+            fprintf(output, "lui %s %d\n", args[0], (int) (immd - lowerimmd));
+            fprintf(output, "ori %s $zero %d\n", args[0], lowerimmd);
+            return 2;
         }
-
-        return 0;
     } else if (strcmp(name, "blt") == 0) {
         /* YOUR CODE HERE */
         if(!is_valid_args(num_args, 3)) return 0;
-        fprintf("slt $t0, %s, %s", args[0], args[1]);
-        fprintf("bne $t0, $zero, %s", args[2]);
+        
+        fprintf(output, "slt $t0 %s %s\n", args[0], args[1]);
+        fprintf(output, "bne $t0 $zero %s\n", args[2]);
 
-        return 0;
+        return 2;
     } else {
         write_inst_string(output, name, args, num_args);
         return 1;
@@ -181,10 +182,9 @@ int write_jump(uint8_t funct, FILE* output, char** args, size_t num_args, uint32
 
     if(!is_valid_args(num_args, 1)) return -1;
     if(is_valid_label(args[0]) == -1) return -1;
-    int err = translate_num(&addr, get_addr_for_symbol(reltbl, args[0]), 0, 0x3ffffff);
-    if(err == -1) return -1;
-
-    write_inst_hex(output, (funct << 26 ) | addr);
+    
+    add_to_table(reltbl, args[0], addr);
+    write_inst_hex(output, (funct << 26));
     return 0;
 }
 
@@ -195,10 +195,10 @@ int write_branch(uint8_t funct, FILE* output, char** args, size_t num_args, uint
     int rt = translate_reg(args[0])<<16;
 
     if(is_valid_label(args[2]) == -1) return -1;
-    int err = translate_num(&addr, get_addr_for_symbol(symtbl, args[2]), 0, 0xffff);
-    if(err == -1) return -1;
+    int immd = get_addr_for_symbol(symtbl, args[2]) - addr - 4;
+    if(immd > 0xffff) return -1;
 
-    write_inst_hex(output, (funct << 26 ) | rs | rt | addr);
+    write_inst_hex(output, (funct << 26 ) | rs | rt | immd);
     return 0;
 }
 

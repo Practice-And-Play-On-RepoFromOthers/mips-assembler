@@ -108,9 +108,9 @@ int add_to_table(SymbolTable* table, const char* name, uint32_t addr) {
         }
     }
     
-    char namecpy[sizeof(name)];
-    strcpy(namecpy, name);
-    p->name = namecpy;
+    // TODO namecpy will be released
+    p->name = malloc(sizeof(name));
+    sprintf(p->name, "%s", name);
     p->addr = addr;
 
     table->len++;
