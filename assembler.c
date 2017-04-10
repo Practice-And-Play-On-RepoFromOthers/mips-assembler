@@ -128,39 +128,28 @@ int pass_one(FILE* input, FILE* output, SymbolTable* symtbl) {
     while(fgets(buf, BUF_SIZE, input))
     {
         skip_comment(buf);
-        strtok(buf, "\n");
-        char* token = strtok(buf, " ");
-        if(token != NULL)
+        char* token = strtok(buf, " (),\r\n\t");
+        int has_check_label = 0;
+        int num_args = 0;
+        char* args[MAX_ARGS];
+        char* name = 0;
+        while(token != NULL)
         {
-            int num_args = 0;
-            char* args[MAX_ARGS];
-            char* name;
-            int addLabel = add_if_label(input_line, token, byte_offset, symtbl);
-            if(addLabel == -1)
+            if(!has_check_label)
             {
-                err = -1;
-                name = strtok(NULL, " ");
-            }
-            else if(addLabel == 0)
-            {
-                name = token;
+                int addLabel = add_if_label(input_line, token, byte_offset, symtbl);
+                if(addLabel == -1) err = -1;
+                else if(addLabel == 0) name = token;
+                has_check_label = 1;
             }
             else
             {
-                name = strtok(NULL, " ");
-            }
-
-            if(name != NULL)
-            {
-                char* argStr = strtok(NULL, " ");
-                token = strtok(argStr, ", ");
-                while(token != NULL)
+                if(name != NULL)
                 {
                     if(num_args < MAX_ARGS)
                     {
                         args[num_args] = token;
                         num_args++;
-                        token = strtok(NULL, ", ");
                     }
                     else
                     {
@@ -169,14 +158,20 @@ int pass_one(FILE* input, FILE* output, SymbolTable* symtbl) {
                         break;
                     }
                 }
-
-                if(num_args < MAX_ARGS)
+                else
                 {
-                    int insts = write_pass_one(output, name, args, num_args);
-                    if(insts == 0) err = -1;
-                    else byte_offset += (insts<<2);
+                    name = token;
                 }
             }
+
+            token = strtok(NULL, " (),\r\n\t");
+        }
+
+        if(num_args > 0 && token == NULL)
+        {
+            int insts = write_pass_one(output, name, args, num_args);
+            if(insts == 0) err = -1;
+            else byte_offset += (insts<<2);
         }
 
         input_line++;
@@ -201,35 +196,38 @@ int pass_two(FILE *input, FILE* output, SymbolTable* symtbl, SymbolTable* reltbl
     char buf[BUF_SIZE];
     // Store input line number / byte offset below. When should each be incremented?
     int line = 1;
+    int byte_offset = 0;
     int err = 0;
     while(fgets(buf, BUF_SIZE, input))
     {
     // First, read the next line into a buffer.
     // Next, use strtok() to scan for next character. If there's nothing,
     // go to the next line.
-        strtok(buf, "\n");
-        char* name = strtok(buf, " ");
+        char* name = strtok(buf, " \r\n");
         if(name != NULL)
         {
             char* args[MAX_ARGS];
             int num_args = 0;
-            char* token = strtok(NULL, " ");
+            char* token = strtok(NULL, " \r\n");
             
             while(token != NULL)
             {
                 args[num_args] = token;
-                token = strtok(NULL, " ");
                 num_args++;
+                token = strtok(NULL, " \r\n");
             }
         // Parse for instruction arguments. You should use strtok() to tokenize
         // the rest of the line. Extra arguments should be filtered out in pass_one(),
         // so you don't need to worry about that here.
-            if(translate_inst(output, name, args, num_args, line << 2, symtbl, reltbl) == -1) 
+            if(translate_inst(output, name, args, num_args, byte_offset << 2, symtbl, reltbl) == -1) 
             {
                 raise_inst_error(line, name, args, num_args) ;
                 err = -1;
             }
+
+            else byte_offset++;
         }
+
         line ++;
     }
 

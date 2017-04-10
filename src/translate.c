@@ -125,11 +125,13 @@ int write_rtype(uint8_t funct, FILE* output, char** args, size_t num_args) {
 
     if(!is_valid_args(num_args, 3)) return -1;
 
-    int rd = translate_reg(args[0])<<11;
-    int rs = translate_reg(args[1])<<21;
-    int rt = translate_reg(args[2])<<16;
+    int rd = translate_reg(args[0]);
+    int rs = translate_reg(args[1]);
+    int rt = translate_reg(args[2]);
 
-    uint32_t instruction = (funct << 26 ) | rd | rs | rt;
+    if(rd == -1 || rs == -1 || rt == -1) return -1;
+
+    uint32_t instruction = funct | (rd << 11) | (rs << 21) | (rt << 16);
 
     write_inst_hex(output, instruction);
     return 0;
@@ -148,11 +150,13 @@ int write_shift(uint8_t funct, FILE* output, char** args, size_t num_args) {
     if(!is_valid_args(num_args, 3)) return -1;
 
     long int shamt;
-    int rd = translate_reg(args[0]) << 11;
-    int rt = translate_reg(args[1]) << 16;
+    int rd = translate_reg(args[0]);
+    int rt = translate_reg(args[1]);
+    if(rd == -1 || rt == -1) return -1;
+    
     int err = translate_num(&shamt, args[2], 0, 31);
     if(err == -1) return -1;
-    uint32_t instruction = (funct << 26 ) | rd | rt | (shamt << 6);
+    uint32_t instruction = funct | (rd << 11) | (rt << 16) | (shamt << 6);
     write_inst_hex(output, instruction);
     return 0;
 }
@@ -160,70 +164,89 @@ int write_shift(uint8_t funct, FILE* output, char** args, size_t num_args) {
 int write_jr(uint8_t funct, FILE* output, char** args, size_t num_args) {
     
     if(!is_valid_args(num_args, 1)) return -1;
-    int rs = translate_reg(args[0]) << 21;
-    write_inst_hex(output, (funct << 26 ) | rs);
+    int rs = translate_reg(args[0]);
+    if(rs == -1) return -1;
+
+    write_inst_hex(output, funct | (rs << 21));
     return 0;
 }
 
-int write_addiu(uint8_t funct, FILE* output, char** args, size_t num_args) {
+int write_addiu(uint8_t opcode, FILE* output, char** args, size_t num_args) {
 
     if(!is_valid_args(num_args, 3)) return -1;
-    int rs = translate_reg(args[1])<<21;
-    int rt = translate_reg(args[0])<<16;
+    int rs = translate_reg(args[1]);
+    int rt = translate_reg(args[0]);
+    if(rs == -1 || rt == -1) return -1;
     long int immd;
     int err = translate_num(&immd, args[2], 0, 0xffff);
     if(err == -1) return -1;
 
-    write_inst_hex(output, (funct << 26 ) | rs | rt | immd);
+    write_inst_hex(output, (opcode << 26 ) | (rs << 21) | (rt << 16) | immd);
     return 0;
 }
 
-int write_jump(uint8_t funct, FILE* output, char** args, size_t num_args, uint32_t addr, SymbolTable* reltbl) {
+int write_jump(uint8_t opcode, FILE* output, char** args, size_t num_args, uint32_t addr, SymbolTable* reltbl) {
 
     if(!is_valid_args(num_args, 1)) return -1;
     if(is_valid_label(args[0]) == -1) return -1;
     
     add_to_table(reltbl, args[0], addr);
-    write_inst_hex(output, (funct << 26));
+    write_inst_hex(output, (opcode << 26));
     return 0;
 }
 
-int write_branch(uint8_t funct, FILE* output, char** args, size_t num_args, uint32_t addr, SymbolTable* symtbl) {
+int write_branch(uint8_t opcode, FILE* output, char** args, size_t num_args, uint32_t addr, SymbolTable* symtbl) {
 
     if(!is_valid_args(num_args, 3)) return -1;
-    int rs = translate_reg(args[1])<<21;
-    int rt = translate_reg(args[0])<<16;
+    int rs = translate_reg(args[0]);
+    int rt = translate_reg(args[1]);
+
+    if(rs == -1 || rt == -1) return -1;
 
     if(is_valid_label(args[2]) == -1) return -1;
-    int immd = get_addr_for_symbol(symtbl, args[2]) - addr - 4;
-    if(immd > 0xffff) return -1;
 
-    write_inst_hex(output, (funct << 26 ) | rs | rt | immd);
+    int sign_bit = 0;
+    int64_t tmp = get_addr_for_symbol(symtbl, args[2]) - addr - 4;
+    if(tmp < 0) 
+    {
+        tmp = -tmp;
+        sign_bit = 1;
+    }
+    
+    tmp >>= 2;
+    if(tmp > 0xbfff) return -1;
+    
+    int immd = ((sign_bit)? -tmp : tmp) & 0x0000ffff;
+    write_inst_hex(output, (opcode << 26 ) | (rs << 21) | (rt << 16) | immd);
     return 0;
 }
 
-int write_mem(uint8_t funct, FILE* output, char** args, size_t num_args) {
+int write_mem(uint8_t opcode, FILE* output, char** args, size_t num_args) {
 
     if(!is_valid_args(num_args, 3)) return -1;
-    int rs = translate_reg(args[2])<<21;
-    int rt = translate_reg(args[0])<<16;
+    int rs = translate_reg(args[2]);
+    int rt = translate_reg(args[0]);
+    if(rs == -1 || rt == -1) return -1;
+
     long int immd;
     int err = translate_num(&immd, args[1], 0, 0xffff);
     if(err == -1) return -1;
 
-    write_inst_hex(output, (funct << 26 ) | rs | rt | immd);
+    write_inst_hex(output, (opcode << 26 ) | (rs << 21) | (rt << 16) | immd);
     return 0;
 }
 
-int write_lui(uint8_t funct, FILE* output, char** args, size_t num_args) {
+int write_lui(uint8_t opcode, FILE* output, char** args, size_t num_args) {
 
     if(!is_valid_args(num_args, 2)) return -1;
-    int rt = translate_reg(args[0])<<16;
+    int rt = translate_reg(args[0]);
+    if(rt == -1) return -1;
+
     long int immd;
     int err = translate_num(&immd, args[1], 0, 0xffff);
     if(err == -1) return -1;
 
-    write_inst_hex(output, (funct << 26 ) | rt | immd);
+    write_inst_hex(output, (opcode << 26 ) | (rt << 16) | immd);
     return 0;
 }
 
