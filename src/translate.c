@@ -43,25 +43,24 @@ unsigned write_pass_one(FILE* output, const char* name, char** args, int num_arg
         /* YOUR CODE HERE */
         if(!is_valid_args(num_args, 2)) return 0;
         long int immd;
-        if(translate_num(&immd, args[1], 0, 0xffffffff) == -1) return 0;
-        if(immd < 0x10000) 
+        if(translate_num(&immd, args[1], 0xffffffff80000000, 0xffffffff) == -1) return 0;
+        if(immd > 0xffff || immd < (long) 0xffffffffffff8000) 
         {
-            fprintf(output, "addiu %s %s\n", args[0], args[1]);
-            return 1;
+            fprintf(output, "lui $at %d\n", (int) ((immd & 0xffff0000) >> 16));
+            fprintf(output, "ori %s $at %d\n", args[0], (int) immd & 0xffff);
+            return 2;
         }
         else
         {
-            int lowerimmd = (immd & 0x0000ffff);
-            fprintf(output, "lui %s %d\n", args[0], (int) (immd - lowerimmd));
-            fprintf(output, "ori %s $zero %d\n", args[0], lowerimmd);
-            return 2;
+            fprintf(output, "addiu %s $0 %s\n", args[0], args[1]);
+            return 1;
         }
     } else if (strcmp(name, "blt") == 0) {
         /* YOUR CODE HERE */
         if(!is_valid_args(num_args, 3)) return 0;
         
-        fprintf(output, "slt $t0 %s %s\n", args[0], args[1]);
-        fprintf(output, "bne $t0 $zero %s\n", args[2]);
+        fprintf(output, "slt $at %s %s\n", args[0], args[1]);
+        fprintf(output, "bne $at $0 %s\n", args[2]);
 
         return 2;
     } else {
@@ -178,8 +177,9 @@ int write_addiu(uint8_t opcode, FILE* output, char** args, size_t num_args) {
     int rt = translate_reg(args[0]);
     if(rs == -1 || rt == -1) return -1;
     long int immd;
-    int err = translate_num(&immd, args[2], 0, 0xffff);
+    int err = translate_num(&immd, args[2], 0xffffffffffff8000, 0xffff);
     if(err == -1) return -1;
+    if(immd < 0) immd &= 0xffff;
 
     write_inst_hex(output, (opcode << 26 ) | (rs << 21) | (rt << 16) | immd);
     return 0;
@@ -205,18 +205,11 @@ int write_branch(uint8_t opcode, FILE* output, char** args, size_t num_args, uin
 
     if(is_valid_label(args[2]) == -1) return -1;
 
-    int sign_bit = 0;
-    int64_t tmp = get_addr_for_symbol(symtbl, args[2]) - addr - 4;
-    if(tmp < 0) 
-    {
-        tmp = -tmp;
-        sign_bit = 1;
-    }
+    long int immd = get_addr_for_symbol(symtbl, args[2]) - addr - 4;   
+    immd >>= 2;
+    if(immd > 0xffff || immd < (long) 0xffffffffffff8000) return -1;
     
-    tmp >>= 2;
-    if(tmp > 0xbfff) return -1;
-    
-    int immd = ((sign_bit)? -tmp : tmp) & 0x0000ffff;
+    immd &= 0xffff;
     write_inst_hex(output, (opcode << 26 ) | (rs << 21) | (rt << 16) | immd);
     return 0;
 }
@@ -229,8 +222,9 @@ int write_mem(uint8_t opcode, FILE* output, char** args, size_t num_args) {
     if(rs == -1 || rt == -1) return -1;
 
     long int immd;
-    int err = translate_num(&immd, args[1], 0, 0xffff);
+    int err = translate_num(&immd, args[1], 0xffffffffffff8000, 0xffff);
     if(err == -1) return -1;
+    if(immd < 0) immd &= 0xffff;
 
     write_inst_hex(output, (opcode << 26 ) | (rs << 21) | (rt << 16) | immd);
     return 0;
@@ -243,8 +237,9 @@ int write_lui(uint8_t opcode, FILE* output, char** args, size_t num_args) {
     if(rt == -1) return -1;
 
     long int immd;
-    int err = translate_num(&immd, args[1], 0, 0xffff);
+    int err = translate_num(&immd, args[1], 0xffffffffffff8000, 0xffff);
     if(err == -1) return -1;
+    if(immd < 0) immd &= 0xffff;
 
     write_inst_hex(output, (opcode << 26 ) | (rt << 16) | immd);
     return 0;
