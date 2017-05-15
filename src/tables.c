@@ -46,11 +46,16 @@ SymbolTable* create_table(int mode) {
     SymbolTable* newtable = (SymbolTable*) malloc(sizeof(SymbolTable));
     if(newtable == 0) allocation_failed();
     newtable->cap = 1;
-    newtable->tbl = (Symbol*) calloc(newtable->cap, sizeof(Symbol));
+    newtable->tbl = (Symbol*) malloc(newtable->cap * sizeof(Symbol));
     if(newtable->tbl == 0) 
     {
         free_table(newtable);
         allocation_failed();
+    }
+
+    for(int i = 0; i < newtable->cap; i++)
+    {
+        newtable->tbl[i].name = NULL;
     }
 
     newtable->mode = mode;
