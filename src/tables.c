@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -46,10 +45,15 @@ SymbolTable* create_table(int mode) {
     
     SymbolTable* newtable = (SymbolTable*) malloc(sizeof(SymbolTable));
     if(newtable == 0) allocation_failed();
-    newtable->tbl = (Symbol*) malloc(sizeof(Symbol)*5);
-    if(newtable->tbl == 0) allocation_failed();
+    newtable->cap = 1;
+    newtable->tbl = (Symbol*) calloc(newtable->cap, sizeof(Symbol));
+    if(newtable->tbl == 0) 
+    {
+        free_table(newtable);
+        allocation_failed();
+    }
+
     newtable->mode = mode;
-    newtable->cap = 5;
     newtable->len = 0;
 
     return newtable;
@@ -58,7 +62,17 @@ SymbolTable* create_table(int mode) {
 /* Frees the given SymbolTable and all associated memory. */
 void free_table(SymbolTable* table) {
     /* YOUR CODE HERE */
-    free(table);
+    if(table != NULL)
+    {
+        // TODO: Free names.
+        for(int i = 0; i < table->cap; i++)
+        {
+            if(table->tbl[i].name != NULL) free(table->tbl[i].name);
+        }
+
+        free(table->tbl);
+        free(table);
+    }
 }
 
 /* Adds a new symbol and its address to the SymbolTable pointed to by TABLE. 
@@ -108,9 +122,10 @@ int add_to_table(SymbolTable* table, const char* name, uint32_t addr) {
         }
     }
     
-    // TODO namecpy will be released
-    p->name = malloc(sizeof(name));
-    sprintf(p->name, "%s", name);
+    // // TODO free p->name in free_table()
+    p->name = malloc(strlen(name)+1);
+    if(p->name == 0) allocation_failed();
+    strcpy(p->name, name);
     p->addr = addr;
 
     table->len++;
