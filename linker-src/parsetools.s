@@ -37,6 +37,30 @@
 #------------------------------------------------------------------------------
 hex_to_str:
 	# YOUR CODE HERE
+    # $t0 shift amount
+    addiu $a1, $a1, 9
+    sb $0, 0($a1)
+    addiu $a1, $a1, -1
+    li $t0, 10
+    sb $t0, 0($a1)
+    li $t0, 0
+hex_to_str_lookup_ascii:
+    slti $t1, $t0, 32 
+    beq $t1, 0, hex_to_str_return
+    srlv $t2, $a0, $t0 
+    addiu $t0, $t0, 4
+    andi $t2, $t2, 15
+    slti $t1, $t2, 10
+    beq $t1, 1, hex_to_str_ascii_48
+    addiu $t2, $t2, 87
+    j hex_to_str_store_str
+hex_to_str_ascii_48:
+    addiu $t2, $t2, 48
+hex_to_str_store_str:
+    addiu $a1, $a1, -1
+    sb $t2, 0($a1)
+    j hex_to_str_lookup_ascii
+hex_to_str_return:
 	jr $ra
 
 ###############################################################################

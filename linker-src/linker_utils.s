@@ -46,6 +46,20 @@ relocLabel: .asciiz ".relocation"
 #------------------------------------------------------------------------------
 inst_needs_relocation:
 	# YOUR CODE HERE
+    # opcode mask
+    lui $t0, 0xfc00
+    and $t2, $t0, $a0
+    # j opcode
+    lui $t1, 0x0800
+    beq $t1, $t2, inst_needs_relocation_true
+    # jar opcode
+    lui $t1, 0x0c00
+    beq $t1, $t2, inst_needs_relocation_true
+
+    li $v0, 0
+    jr $ra
+inst_needs_relocation_true:
+    li $v0, 1
 	jr $ra
 	
 #------------------------------------------------------------------------------
@@ -68,6 +82,37 @@ inst_needs_relocation:
 #------------------------------------------------------------------------------
 relocate_inst:
 	# YOUR CODE HERE
+    addiu $sp, $sp, -20
+    sw $s3, 16($sp)
+    sw $s2, 12($sp)
+    sw $s1, 8($sp)
+    sw $s0, 4($sp)
+    sw $ra, 0($sp)
+    move $s0, $a0
+    move $s1, $a1
+    move $s2, $a2
+    move $s3, $a3
+
+    move $a0, $s3
+    jal symbol_for_addr
+    li $t0, -1
+    beq $t0, $v0, relocate_inst_return
+    move $a1, $v0
+    move $a0, $s2
+    jal addr_for_symbol
+    li $t0, -1
+    beq $t0, $v0, relocate_inst_return
+    srl $v0, $v0, 2
+    lui $t1, 0xfc00
+    and $t1, $s0, $t1
+    or $v0, $t1, $v0
+relocate_inst_return:
+    lw $s3, 16($sp)
+    lw $s2, 12($sp)
+    lw $s1, 8($sp)
+    lw $s0, 4($sp)
+    lw $ra, 0($sp)
+    addiu $sp, $sp, 20
 	jr $ra
 
 ###############################################################################

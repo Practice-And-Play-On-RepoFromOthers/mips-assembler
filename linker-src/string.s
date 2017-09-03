@@ -28,6 +28,14 @@ tab:	.asciiz "\t"
 #------------------------------------------------------------------------------
 strlen:
 	# YOUR CODE HERE
+	li $v0, 0
+strlen_loop:
+	lb $t0, 0($a0)
+	addiu $a0, $a0, 1
+	beq $t0, $0, strlen_return
+	addiu $v0, $v0, 1
+	j strlen_loop
+strlen_return:
 	jr $ra
 
 #------------------------------------------------------------------------------
@@ -42,6 +50,18 @@ strlen:
 #------------------------------------------------------------------------------
 strncpy:
 	# YOUR CODE HERE
+	li $t0, 0
+	addiu $v0, $a0, 0
+strncpy_loop:
+	slt $t1, $t0, $a2
+	beq $t1, 0, strncpy_return
+	addiu $t0, $t0, 1
+	lb $t3, 0($a1)
+	sb $t3, 0($a0)
+	addiu $a1, $a1, 1
+	addiu $a0, $a0, 1
+	j strncpy_loop
+strncpy_return:
 	jr $ra
 
 #------------------------------------------------------------------------------
@@ -58,6 +78,29 @@ strncpy:
 #------------------------------------------------------------------------------
 copy_of_str:
 	# YOUR CODE HERE
+	addiu $sp, $sp, -12
+	sw $s1, 8($sp)
+	sw $s0, 4($sp)
+	sw $ra, 0($sp)
+	# $s0: $a0 address
+	addiu $s0, $a0, 0
+	jal strlen
+	# $s1: $a0 length
+	addiu $s1, $v0, 0
+	
+	addiu $a0, $s1, 0
+	li $v0, 9
+	syscall
+
+	addiu $a0, $v0, 0
+	addiu $a2, $s1, 0
+	addiu $a1, $s0, 0
+	jal strncpy
+
+	lw $ra, 0($sp)
+	lw $s0, 4($sp)
+	lw $s1, 8($sp)
+	addiu $sp, $sp, 12
 	jr $ra
 
 ###############################################################################
